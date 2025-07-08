@@ -83,10 +83,11 @@ To run this project, you need:
       - `mic_index` (int) - index of the device to use for audio input. If `None` or unspecified will use default microphone.
 
       - `chatbot_service` (str) - service that will generate responses
-          - `"openai"` - OpenAI text generation servise; paid, requires OpanAi API key.
+          - `"openai"` - OpenAI text generation service; paid, requires OpanAi API key.
           - `"test"` - returns prewritten message; used as dummy text for developement to reduce time and cost of testings.
+          - `"ollama"` - uses Ollama text generation service; free, you must have Ollama running in the background or another terminal.
           - `None` or unspecified - default value is `"openai"`.
-      - `chatbot_model` (str) - model used for text generation. List of available models you can find [here](https://platform.openai.com/docs/models/overview). Default value is `"gpt-3.5-turbo"`.
+      - `chatbot_model` (str) - model used for text generation. List of available models you can find [here](https://platform.openai.com/docs/models/overview). Default value is `"gpt-3.5-turbo"`. If you are using Ollama, enter the name of the model you would like to run (`"mistral"`, `"gemma3"`, `"deepseek-r1"`).
       - `chatbot_temperature` (float) - determines creativity of the generated text. A higher value leads to more creative result. A lower value leads to less creative and more similar results. Default value is `0.5`.
       - `personality_file` (str) - relative path to txt file with waifu's description. Default value is `"personality.txt"`.
         

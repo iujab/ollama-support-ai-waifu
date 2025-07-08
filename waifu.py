@@ -5,6 +5,8 @@ from elevenlabs import generate, save, set_api_key, voices
 import sounddevice as sd
 import soundfile as sf
 
+import ollama
+
 from dotenv import load_dotenv
 from os import getenv, path
 from json import load, dump, dumps, JSONDecodeError
@@ -39,7 +41,9 @@ class Waifu:
         self.mic = sr.Microphone(device_index=mic_index)
         self.recogniser = sr.Recognizer()
         
-        openai.api_key = getenv("OPENAI_API_KEY")
+        if chatbot_service == 'openai' or user_input_service == 'whisper':
+            openai.api_key = getenv("OPENAI_API_KEY")
+        
         self.update_chatbot(service = chatbot_service, model = chatbot_model, temperature = chatbot_temperature, personality_file = personality_file)
         self.__load_chatbot_data()
 
@@ -83,7 +87,8 @@ class Waifu:
         elif self.tts_service is None:
             self.tts_service = 'google'
 
-        set_api_key(getenv('ELEVENLABS_API_KEY'))
+        if service == 'elevenlabs':
+            set_api_key(getenv('ELEVENLABS_API_KEY'))
 
         if voice:
             self.tts_voice = voice
@@ -133,13 +138,15 @@ class Waifu:
         model = self.chatbot_model if model is None else model
         temperature = self.chatbot_temperature if temperature is None else temperature
 
-        supported_chatbot_services = ['openai', 'test']
+        supported_chatbot_services = ['openai', 'test', 'ollama']
 
         result = ""
         if service == 'openai':
             result = self.__get_openai_response(prompt, model=model, temperature=temperature)
         elif service == 'test':
             result = "This is test answer from Waifu. Nya kawaii, senpai!"
+        elif service == 'ollama':
+            result = self.__get_ollama_response(prompt, model=model, temperature=temperature)
         else:
             raise ValueError(f"{service} servise doesn't supported. Please, use one of the following services: {supported_chatbot_services}")
         
@@ -155,8 +162,6 @@ class Waifu:
         if service not  in supported_tts_services:
             raise ValueError(f"{service} servise doesn't supported. Please, use one of the following services: {supported_tts_services}")
         
-
-
         if service == 'google':
             gTTS(text=text, lang='en', slow=False, lang_check=False).save('output.mp3')
         elif service == 'elevenlabs':
@@ -171,13 +176,17 @@ class Waifu:
         sd.wait()
 
     def conversation_cycle(self) -> dict:
-        input = self.get_user_input()
+        user_input = self.get_user_input()
 
-        response = self.get_chatbot_response(input)
+        # If the input is empty or just whitespace, skip this cycle
+        if not user_input.strip():
+            return {}
+        
+        response = self.get_chatbot_response(user_input)
 
         self.tts_say(response)
-        
-        return dict(user = input, assistant = response)
+
+        return dict(user = user_input, assistant = response)
 
     def __get_openai_response(self, prompt:str, model:str, temperature:float) -> str:
         self.__add_message('user', prompt)
@@ -194,6 +203,23 @@ class Waifu:
         self.__update_message_history()
 
         return response
+
+    def __get_ollama_response(self, prompt: str, model: str, temperature: float) -> str:
+        self.__add_message('user', prompt)
+        messages = self.context + self.message_history
+
+        response = ollama.chat(
+            model=model,
+            messages=messages,
+            stream=False,
+            options={'temperature': temperature}
+        )
+        response_content = response['message']['content']
+
+        self.__add_message('assistant', response_content)
+        self.__update_message_history()
+
+        return response_content
 
     def __add_message(self, role:str, content:str) -> None:
         self.message_history.append({'role': role, 'content': content})
@@ -254,8 +280,6 @@ class Waifu:
             transcript = openai.Audio.transcribe(model="whisper-1", file=audio_file)
         return transcript['text']
 
-
-
 def main():
     w = Waifu()
     w.initialize(user_input_service='console', 
@@ -263,9 +287,6 @@ def main():
                  tts_service='google', output_device=8)
 
     w.conversation_cycle()
-
-    #while True:
-    #    w.conversation_cycle()
 
 if __name__ == "__main__":
     main()
